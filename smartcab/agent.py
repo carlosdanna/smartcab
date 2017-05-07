@@ -8,7 +8,7 @@ class LearningAgent(Agent):
     """ An agent that learns to drive in the Smartcab world.
         This is the object you will be modifying. """ 
 
-    def __init__(self, env, learning=False, epsilon=1.0, alpha=0.5):
+    def __init__(self, env, learning=True, epsilon=1.0, alpha=.3):
         super(LearningAgent, self).__init__(env)     # Set the agent in the evironment 
         self.planner = RoutePlanner(self.env, self)  # Create a route planner
         self.valid_actions = self.env.valid_actions  # The set of valid actions
@@ -18,12 +18,14 @@ class LearningAgent(Agent):
         self.Q = dict()          # Create a Q-table which will be a dictionary of tuples
         self.epsilon = epsilon   # Random exploration factor
         self.alpha = alpha       # Learning factor
-
+        
+        
         ###########
         ## TO DO ##
         ###########
         # Set any additional class parameters as needed
-
+        self.a = .99
+        self.trial = 0
 
     def reset(self, destination=None, testing=False):
         """ The reset function is called at the beginning of each trial.
@@ -39,8 +41,14 @@ class LearningAgent(Agent):
         # Update epsilon using a decay function of your choice
         # Update additional class parameters as needed
         # If 'testing' is True, set epsilon and alpha to 0
+        
         if testing == True:
             self.alpha = 0.0
+            self.epsilon = 0.0
+        else:
+            # self.epsilon -=.05
+            self.epsilon = math.pow(self.a, self.trial)
+            self.trial += 1
         return None
 
     def build_state(self):
@@ -52,13 +60,11 @@ class LearningAgent(Agent):
         waypoint = self.planner.next_waypoint() # The next waypoint 
         inputs = self.env.sense(self)           # Visual input - intersection light and traffic
         deadline = self.env.get_deadline(self)  # Remaining deadline
-
         ########### 
         ## TO DO ##
         ###########
         # Set 'state' as a tuple of relevant data for the agent        
-        state = None
-
+        state = (waypoint, str(inputs))
         return state
 
 
@@ -72,7 +78,11 @@ class LearningAgent(Agent):
         # Calculate the maximum Q-value of all actions for a given state
 
         maxQ = None
-
+        maxQValue = -1
+        for attr in self.Q[state]:
+            if(self.Q[state][attr] > maxQValue):
+                maxQValue = self.Q[state][attr]
+                maxQ = attr
         return maxQ 
 
 
@@ -85,8 +95,11 @@ class LearningAgent(Agent):
         # When learning, check if the 'state' is not in the Q-table
         # If it is not, create a new dictionary for that state
         #   Then, for each action available, set the initial Q-value to 0.0
+        if self.learning == True:
+            if self.Q.get(state) == None:
+                self.Q[state] = { a:0.0 for a in Environment.valid_actions}
 
-        return
+        return self.Q
 
 
     def choose_action(self, state):
@@ -105,8 +118,11 @@ class LearningAgent(Agent):
         #   Otherwise, choose an action with the highest Q-value for the current state
         if self.learning == False:
             action = self.env.valid_actions[random.randint(0, 3)]
-        
-
+        elif self.epsilon > random.random():
+            action = self.env.valid_actions[random.randint(0, 3)]
+        else:
+            action = self.get_maxQ(state)
+            
         return action
 
 
@@ -120,7 +136,8 @@ class LearningAgent(Agent):
         ###########
         # When learning, implement the value iteration update rule
         #   Use only the learning rate 'alpha' (do not use the discount factor 'gamma')
-
+        if(self.learning == True):
+            self.Q[state][action] += self.alpha * (reward-self.Q[state][action])
         return
 
 
